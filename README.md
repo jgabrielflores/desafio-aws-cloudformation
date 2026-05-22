@@ -1,253 +1,159 @@
-# Desafio AWS CloudFormation — Minha Primeira Stack
+<div align="center">
 
-Documentação do desafio de projeto **AWS CloudFormation**, do bootcamp
-**GFT - Fundamentos de Cloud com AWS** (plataforma [DIO](https://www.dio.me/)).
+# Infraestrutura como Código com AWS CloudFormation
 
-Este laboratório implementa, do zero, uma **stack** com AWS CloudFormation, aplicando os
-conceitos de **Infraestrutura como Código (IaC)**. Aqui ficam registrados o template
-utilizado, o passo a passo do deploy real na AWS (com screenshots) e os aprendizados da
-prática.
+[![AWS](https://img.shields.io/badge/Amazon_AWS-232F3E?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/)
+[![CloudFormation](https://img.shields.io/badge/AWS_CloudFormation-FF4F8B?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/cloudformation/)
+[![EC2](https://img.shields.io/badge/Amazon_EC2-FF9900?style=for-the-badge&logo=amazon-ec2&logoColor=white)](https://aws.amazon.com/ec2/)
+[![S3](https://img.shields.io/badge/Amazon_S3-569A31?style=for-the-badge&logo=amazon-s3&logoColor=white)](https://aws.amazon.com/s3/)
+[![IAM](https://img.shields.io/badge/AWS_IAM-DD344C?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/iam/)
+[![Status](https://img.shields.io/badge/Status-Conclu%C3%ADdo-brightgreen?style=for-the-badge)](.)
 
----
+**Bootcamp GFT — Fundamentos de Cloud com AWS** · [DIO](https://www.dio.me/)
 
-## Índice
-
-1. [Objetivo do desafio](#1-objetivo-do-desafio)
-2. [O que é o AWS CloudFormation](#2-o-que-é-o-aws-cloudformation)
-3. [Arquitetura da solução](#3-arquitetura-da-solução)
-4. [Anatomia de um template](#4-anatomia-de-um-template)
-5. [O template do projeto](#5-o-template-do-projeto)
-6. [Adaptações sobre o material da aula](#6-adaptações-sobre-o-material-da-aula)
-7. [Passo a passo da prática](#7-passo-a-passo-da-prática)
-8. [Recursos criados na AWS](#8-recursos-criados-na-aws)
-9. [Insights e aprendizados](#9-insights-e-aprendizados)
-10. [Limpeza dos recursos](#10-limpeza-dos-recursos)
-11. [Estrutura do repositório](#11-estrutura-do-repositório)
-12. [Referências](#12-referências)
+</div>
 
 ---
 
-## 1. Objetivo do desafio
+## 🎯 Objetivo
 
-O desafio propõe implementar a **primeira stack com AWS CloudFormation** e documentar a
-experiência. Ao final, deve-se ser capaz de:
-
-- Aplicar os conceitos de **Infraestrutura como Código (IaC)** em um ambiente prático;
-- Documentar processos técnicos de forma clara e estruturada;
-- Utilizar o **GitHub** para compartilhar documentação técnica.
-
-O entregável é este repositório: um template CloudFormation funcional, o registro do
-deploy real e as anotações de aprendizado.
+Este laboratório tem como objetivo implementar a primeira Stack com AWS CloudFormation, aplicando na prática os conceitos de **Infraestrutura como Código (IaC)**. O entregável é um repositório organizado contendo o template utilizado, o registro do deploy real na AWS e os aprendizados da prática.
 
 ---
 
-## 2. O que é o AWS CloudFormation
+## ⚙️ Tecnologias Utilizadas
 
-O **AWS CloudFormation** é o serviço de **Infraestrutura como Código (IaC)** da AWS.
-Em vez de criar recursos manualmente clicando na console, você **descreve a
-infraestrutura desejada em um arquivo de texto** (um *template* em YAML ou JSON) e o
-CloudFormation provisiona tudo automaticamente.
-
-**Conceitos centrais:**
-
-| Conceito | Descrição |
-|----------|-----------|
-| **Template** | Arquivo YAML/JSON que descreve os recursos a serem criados. |
-| **Stack** (pilha) | O conjunto de recursos criados a partir de um template. Gerenciar a stack = gerenciar todos os recursos juntos. |
-| **Recurso** | Cada componente AWS declarado no template (uma EC2, um bucket S3, etc.). |
-
-**Vantagens:**
-
-- **Automação** — sobe uma arquitetura inteira com poucos cliques.
-- **Reutilização** — o mesmo template serve para vários ambientes (dev, prod...).
-- **Versionamento** — o template é texto, então vai para o Git e tem histórico.
-- **Consistência** — elimina o erro humano da configuração manual.
-- **Custo** — você paga apenas pelos recursos criados, não pelo uso do CloudFormation.
-
-> Existem outras ferramentas de IaC no mercado, como **Terraform** e **AWS CDK**.
-> O CloudFormation é a solução nativa da AWS.
+| Serviço | Uso |
+|---|---|
+| **AWS CloudFormation** | Provisionamento de infraestrutura via IaC (template YAML) |
+| **Amazon EC2** | Instância Linux com servidor Apache configurado via UserData |
+| **Amazon S3** | Bucket de armazenamento de objetos |
+| **AWS IAM** | Grupo e usuário com permissões gerenciadas |
+| **AWS Systems Manager** | Resolução automática da AMI mais recente (SSM Parameter) |
 
 ---
 
-## 3. Arquitetura da solução
+## 🏗️ Arquitetura da Solução
 
-A stack deste projeto cria **5 recursos** em uma única execução:
+A stack cria **5 recursos** em uma única execução:
 
 ```
-                      Stack: desafio-cloudformation
-   ┌───────────────────────────────────────────────────────────┐
-   │                                                           │
-   │   ┌─────────────────────────────┐                         │
-   │   │  Security Group             │   libera portas 80 + 22  │
-   │   │  ┌───────────────────────┐  │                         │
-   │   │  │  EC2 Instance         │  │   Amazon Linux 2023      │
-   │   │  │  + Apache (UserData)  │  │   t2.micro               │
-   │   │  └───────────────────────┘  │                         │
-   │   └─────────────────────────────┘                         │
-   │                                                           │
-   │   ┌──────────────┐   ┌───────────────┐  ┌──────────────┐  │
-   │   │  Bucket S3   │   │  Grupo IAM    │←─│  Usuário IAM │  │
-   │   └──────────────┘   └───────────────┘  └──────────────┘  │
-   │                                                           │
-   └───────────────────────────────────────────────────────────┘
+                Stack: desafio-cloudformation
+   ┌───────────────────────────────────────────────┐
+   │                                               │
+   │   ┌─────────────────────────────┐             │
+   │   │  Security Group             │             │
+   │   │  ┌───────────────────────┐  │             │
+   │   │  │  EC2 Instance         │  │             │
+   │   │  │  + Apache (UserData)  │  │             │
+   │   │  └───────────────────────┘  │             │
+   │   └─────────────────────────────┘             │
+   │                                               │
+   │   ┌──────────┐  ┌────────────┐  ┌──────────┐  │
+   │   │ Bucket S3│  │ Grupo IAM  │←─│ User IAM │  │
+   │   └──────────┘  └────────────┘  └──────────┘  │
+   │                                               │
+   └───────────────────────────────────────────────┘
 ```
 
-- **EC2 + Apache** — uma instância Linux que instala o servidor web Apache no primeiro
-  boot e publica uma página HTML.
-- **Security Group** — o "firewall" da instância, liberando as portas 80 (HTTP) e 22 (SSH).
-- **Bucket S3** — armazenamento de objetos.
-- **Grupo + Usuário IAM** — um usuário de identidade associado a um grupo.
+| Recurso Lógico | Tipo AWS | Descrição |
+|---|---|---|
+| `GrupoSeguranca` | `AWS::EC2::SecurityGroup` | Firewall liberando portas **80** (HTTP) e **22** (SSH) |
+| `EC2Instance` | `AWS::EC2::Instance` | Instância Linux com Apache instalado via `UserData` |
+| `S3Bucket` | `AWS::S3::Bucket` | Bucket com nome único por conta (`${AWS::AccountId}`) |
+| `IAMGroup` | `AWS::IAM::Group` | Grupo IAM `GPO-ADMIN-LAB` |
+| `IAMUser` | `AWS::IAM::User` | Usuário IAM associado ao grupo |
 
----
-
-## 4. Anatomia de um template
-
-Um template CloudFormation é organizado em seções. As principais:
-
-| Seção | Obrigatória? | Para que serve |
-|-------|:---:|----------------|
-| `AWSTemplateFormatVersion` | Não | Versão do formato do template (`2010-09-09`). |
-| `Description` | Não | Texto livre explicando o que o template faz. |
-| `Parameters` | Não | Valores informados no momento do deploy — deixam o template reutilizável. |
-| `Mappings` | Não | Tabelas estáticas de consulta chave → valor (ex.: por região). |
-| `Resources` | **Sim** | A única seção obrigatória. Declara os recursos AWS a criar. |
-| `Outputs` | Não | Valores retornados após a criação (IDs, URLs, nomes). |
-
-Cada recurso em `Resources` segue o padrão:
-
-```yaml
-NomeLogico:
-  Type: AWS::Servico::Recurso     # ex.: AWS::EC2::Instance
-  Properties:
-    Chave: Valor                  # configuração do recurso
-```
-
-**Funções intrínsecas** usadas neste projeto:
-
-- `!Ref` — referencia outro recurso ou parâmetro.
-- `!Sub` — substitui variáveis dentro de um texto (ex.: `${AWS::AccountId}`).
-- `!FindInMap` — busca um valor na seção `Mappings`.
-- `Fn::Base64` — codifica texto em Base64 (exigido pelo `UserData` da EC2).
-
----
-
-## 5. O template do projeto
-
-O arquivo principal é [`templates/projeto-cloudformation.yaml`](templates/projeto-cloudformation.yaml).
-Ele **consolida em uma única stack** os conceitos que, no material da aula, estavam
-espalhados em 4 templates separados. Assim, sobe-se **uma stack só** — economizando
-custo e evitando recursos duplicados — e ainda assim demonstram-se todos os conceitos.
-
-**Recursos criados:**
-
-| Recurso lógico | Tipo | O que faz |
-|----------------|------|-----------|
-| `GrupoSeguranca` | `AWS::EC2::SecurityGroup` | Firewall liberando as portas **80** (HTTP) e **22** (SSH). |
-| `EC2Instance` | `AWS::EC2::Instance` | Instância Linux que instala o **Apache** no primeiro boot via `UserData` e publica uma página HTML. |
-| `S3Bucket` | `AWS::S3::Bucket` | Bucket S3 com nome único por conta. |
-| `IAMGroup` | `AWS::IAM::Group` | Grupo IAM `GPO-ADMIN-LAB`. |
-| `IAMUser` | `AWS::IAM::User` | Usuário IAM associado ao grupo. |
-
-**Parâmetros do template:**
+### Parâmetros do Template
 
 | Parâmetro | Função |
-|-----------|--------|
-| `InstanceType` | Tipo da EC2 (`t2.micro` ou `t3.micro`). |
-| `KeyName` | Par de chaves para acesso SSH (selecionado no deploy). |
-| `LatestAmiId` | Resolve a AMI mais recente do Amazon Linux 2023 automaticamente, via SSM. |
+|---|---|
+| `InstanceType` | Tipo da EC2 (`t2.micro` ou `t3.micro`) |
+| `KeyName` | Par de chaves para acesso SSH |
+| `LatestAmiId` | Resolve a AMI mais recente do Amazon Linux 2023 via SSM automaticamente |
 
-**Saídas (`Outputs`):** ID da instância, **URL do site**, nome do bucket e nome do usuário IAM.
+### Outputs
 
----
-
-## 6. Adaptações sobre o material da aula
-
-O material da aula (`templates/01-EC2.yaml` a `04-EC2_S3_UserGroup.yaml`) foi mantido
-no repositório **como referência**. O template do projeto, porém, foi reescrito para
-corrigir problemas que impediriam o deploy e para reunir os conceitos das 4 aulas:
-
-| Material original | Problema | Adaptação no projeto |
-|-------------------|----------|----------------------|
-| 4 templates separados | Subir as 4 stacks cria 3–4 instâncias EC2 → custo e recursos repetidos | **Um único template/stack** reunindo todos os conceitos |
-| `04`: `BucketName: S3-FOUNDATION` | Nome de bucket S3 inválido (maiúsculas) e não único globalmente | `!Sub s3-foundation-${AWS::AccountId}` (minúsculas + único) |
-| `04`: AMI Ubuntu fixa (`ami-0c55b...`) | AMIs fixas ficam desatualizadas e variam por região | Parâmetro SSM que resolve a **AMI mais recente** automaticamente |
-| `04`: `VpcId` fixo na conta do professor | Não existe na minha conta → deploy falha | Removido o `VpcId`; uso de `SecurityGroups` na VPC default |
-| `04`: `KeyName: your-key-pair-name` | Placeholder inválido | Parâmetro `KeyName` do tipo `AWS::EC2::KeyPair::KeyName` |
-| `04` não tinha Apache nem porta 80 | Faltavam os conceitos dos vídeos 02 e 03 | Adicionados `UserData` com Apache e regra de porta 80 |
-
-> **Observação sobre `Mappings`:** o template `04` usava `Mappings` para escolher a AMI
-> por região. Como AMIs fixas envelhecem, troquei essa escolha por um parâmetro SSM.
-> Para não perder o conceito, mantive um bloco `Mappings` (`RegiaoInfo`) usado para
-> preencher uma *tag* de localização — o conceito segue demonstrado.
+A stack expõe: ID da instância, **URL do site Apache**, nome do bucket S3 e nome do usuário IAM.
 
 ---
 
-## 7. Passo a passo da prática
+## O que é AWS CloudFormation?
+
+O **AWS CloudFormation** é o serviço de **Infraestrutura como Código (IaC)** da AWS. Em vez de criar recursos manualmente no console, você **descreve a infraestrutura em um arquivo de texto** (YAML ou JSON) e o CloudFormation provisiona tudo automaticamente.
+
+| Conceito | Descrição |
+|---|---|
+| **Template** | Arquivo YAML/JSON que descreve os recursos a criar |
+| **Stack** | Conjunto de recursos criados a partir de um template — gerenciados juntos |
+| **Recurso** | Cada componente AWS declarado no template (EC2, bucket S3, etc.) |
+
+**Funções intrínsecas utilizadas:**
+
+- `!Ref` — referencia outro recurso ou parâmetro
+- `!Sub` — substitui variáveis dentro de um texto (ex.: `${AWS::AccountId}`)
+- `!FindInMap` — busca um valor na seção `Mappings`
+- `Fn::Base64` — codifica texto em Base64 (exigido pelo `UserData` da EC2)
+
+---
+
+## 📋 Passo a Passo
 
 Deploy real executado na região **us-east-1 (Norte da Virgínia)**.
 
 ### Pré-requisito — Criar o Key Pair
 
-A instância EC2 exige um par de chaves para acesso SSH. Em **EC2 → Key Pairs → Create
-key pair**, criei a chave `key-desafio-cloudformation` (tipo **RSA**, formato **`.pem`**).
+Em **EC2 → Key Pairs → Create key pair**, crie a chave `key-desafio-cloudformation` (tipo **RSA**, formato **`.pem`**).
 
 ![Criação do Key Pair](images/01-criar-key-pair.png)
 
-### Etapa 1 — Upload do template
+### Etapa 1 — Upload do Template
 
-No serviço **CloudFormation → Create stack → With new resources**, escolhi
-**Upload a template file** e enviei o arquivo `projeto-cloudformation.yaml`.
+Em **CloudFormation → Create stack → With new resources**, escolha **Upload a template file** e envie o arquivo `projeto-cloudformation.yaml`.
 
 ![Upload do template](images/02-upload-template.png)
 
-### Etapa 2 — Parâmetros da stack
+### Etapa 2 — Parâmetros da Stack
 
-Defini o nome da stack como `desafio-cloudformation` e preenchi os 3 parâmetros:
-`InstanceType` = `t2.micro`, `KeyName` = `key-desafio-cloudformation` e `LatestAmiId`
-no valor padrão.
+Defina o nome da stack como `desafio-cloudformation` e preencha os parâmetros: `InstanceType = t2.micro`, `KeyName = key-desafio-cloudformation` e `LatestAmiId` no valor padrão.
 
 ![Parâmetros da stack](images/03-parametros-stack.png)
 
-### Etapa 3 — Opções da stack
+### Etapa 3 — Opções e Capabilities
 
-Na tela de opções, adicionei a tag `Projeto = Desafio-DIO-GFT`. É **obrigatório** marcar
-o checkbox de **Capabilities** (`CAPABILITY_IAM`), pois a stack cria recursos IAM
-(grupo e usuário).
+Adicione a tag `Projeto = Desafio-DIO-GFT`. Marque o checkbox de **Capabilities** (`CAPABILITY_IAM`) — obrigatório pois a stack cria recursos IAM.
 
 ![Opções da stack](images/04-stack-options.png)
 
-### Etapa 4 — Revisão
+### Etapa 4 — Revisão e Criação
 
-Revisão de tudo que foi configurado antes de criar a stack.
+Revise todas as configurações e clique em **Submit**.
 
 ![Revisão da stack](images/05-review-stack.png)
 
-### Etapa 5 — Stack criada com sucesso
+### Etapa 5 — Stack Criada com Sucesso
 
-Após o **Submit**, o CloudFormation provisionou os **5 recursos**, todos com status
-`CREATE_COMPLETE`.
+Após o provisionamento, todos os **5 recursos** aparecem com status `CREATE_COMPLETE`.
 
 ![Recursos criados](images/06-recursos-criados.png)
 
-### Etapa 6 — Outputs da stack
+### Etapa 6 — Outputs da Stack
 
-A aba **Outputs** retorna os valores úteis definidos no template: ID da instância,
-`WebsiteURL`, nome do bucket S3 e nome do usuário IAM.
+A aba **Outputs** retorna os valores úteis: ID da instância, `WebsiteURL`, nome do bucket e nome do usuário IAM.
 
 ![Outputs da stack](images/07-outputs.png)
 
-### Etapa 7 — Testar o servidor Apache
+---
 
-Abrindo a `WebsiteURL` no navegador, aparece a página servida pelo Apache — instalado
-automaticamente pelo `UserData` durante a criação da instância.
+## 📸 Evidências
+
+### Site Apache Funcionando
+
+Acessando a `WebsiteURL` dos Outputs, o servidor Apache responde — instalado automaticamente pelo `UserData` na criação da instância.
 
 ![Página do Apache](images/08-pagina-apache.png)
 
----
-
-## 8. Recursos criados na AWS
-
-Comprovação, em cada serviço, dos recursos provisionados pela stack.
+### Recursos Criados na AWS
 
 **Instância EC2** — `t2.micro`, status *Running*, com a tag `Name = Webserver-CloudFormation`:
 
@@ -257,74 +163,90 @@ Comprovação, em cada serviço, dos recursos provisionados pela stack.
 
 ![Security Group](images/10-security-group.png)
 
-**Bucket S3** — `s3-foundation-690889479655` (o sufixo é o ID da conta, garantindo nome único):
+**Bucket S3** — sufixo com ID da conta para garantir nome globalmente único:
 
 ![Bucket S3](images/11-bucket-s3.png)
 
-**Usuário IAM** — `usuario.lab.cloudformation`, associado ao grupo `GPO-ADMIN-LAB`:
+**Usuário IAM** — associado ao grupo `GPO-ADMIN-LAB`:
 
 ![Usuário IAM](images/12-usuario-iam.png)
 
-**Template interpretado pela AWS** — o YAML enviado, lido pelo CloudFormation:
+**Template interpretado pelo CloudFormation:**
 
-![Template na console](images/13-template-yaml.png)
-
----
-
-## 9. Insights e aprendizados
-
-- **IaC muda a forma de pensar infraestrutura.** Em vez de "clicar para criar", você
-  *descreve o estado desejado* e a AWS reconcilia. A infraestrutura vira código
-  revisável, versionável e repetível.
-- **A stack é uma unidade de ciclo de vida.** Criar, atualizar e — principalmente —
-  **destruir** tudo de uma vez evita recursos órfãos gerando custo.
-- **Templates do material precisam de revisão crítica.** AMIs e VPCs são específicas
-  de conta/região/data; copiar sem adaptar leva a falhas no deploy. Resolver a AMI via
-  **SSM Parameter** foi o aprendizado técnico mais valioso desta prática.
-- **Nomes de recursos têm regras.** O bucket S3 precisa de nome **globalmente único e
-  em minúsculas** — usar `${AWS::AccountId}` no `!Sub` garante isso.
-- **Recursos IAM exigem confirmação explícita** (`CAPABILITY_IAM`), uma trava de
-  segurança para evitar criação acidental de permissões.
-- **`UserData` automatiza a configuração do servidor**, não só a criação da máquina:
-  a EC2 já nasce com o Apache instalado e rodando.
+![Template no console](images/13-template-yaml.png)
 
 ---
 
-## 10. Limpeza dos recursos
+## 💡 Aprendizados
 
-Para **não gerar custos**, ao terminar a prática:
-
-1. No CloudFormation, selecione a stack `desafio-cloudformation`.
-2. Clique em **Delete** e confirme.
-3. O CloudFormation remove **todos os recursos** da stack automaticamente.
-4. Confirme que a instância EC2 foi para o estado *terminated* no painel do EC2.
-
-> Atenção: um bucket S3 com objetos dentro pode impedir a exclusão da stack — esvazie
-> o bucket antes, se necessário.
+- **IaC muda a forma de pensar infraestrutura.** Em vez de clicar para criar, você *descreve o estado desejado* e a AWS reconcilia. A infraestrutura vira código revisável, versionável e repetível.
+- **A stack é uma unidade de ciclo de vida.** Criar, atualizar e — principalmente — **destruir** tudo de uma vez evita recursos órfãos gerando custo.
+- **Templates de materiais didáticos precisam de revisão crítica.** AMIs e VPCs são específicas de conta/região/data; copiar sem adaptar leva a falhas no deploy. Resolver a AMI via **SSM Parameter** foi o aprendizado técnico mais valioso desta prática.
+- **Nomes de recursos têm regras.** Buckets S3 precisam de nome **globalmente único e em minúsculas** — usar `${AWS::AccountId}` no `!Sub` garante isso de forma elegante.
+- **Recursos IAM exigem `CAPABILITY_IAM`** — uma trava de segurança da AWS para evitar criação acidental de permissões.
+- **`UserData` automatiza a configuração do servidor** — a EC2 já nasce com Apache instalado e rodando, sem intervenção manual.
 
 ---
 
-## 11. Estrutura do repositório
+## 🧹 Limpeza dos Recursos
+
+Para não gerar custos após a prática:
+
+1. No CloudFormation, selecione a stack `desafio-cloudformation`
+2. Clique em **Delete** e confirme
+3. O CloudFormation remove **todos os recursos** automaticamente
+4. Confirme que a EC2 foi para o estado *terminated*
+
+> Se o bucket S3 contiver objetos, esvazie-o antes de deletar a stack.
+
+---
+
+## 🗂️ Estrutura do Repositório
 
 ```
-.
-├── README.md                           # este documento
+desafio-aws-cloudformation/
+├── README.md
 ├── templates/
-│   ├── projeto-cloudformation.yaml      # template consolidado (o que sobe na AWS)
-│   ├── 01-EC2.yaml                      # material da aula — referência
-│   ├── 02-Apache.yaml                   # material da aula — referência
-│   ├── 03-Firewall.yaml                 # material da aula — referência
-│   └── 04-EC2_S3_UserGroup.yaml         # material da aula — referência
-└── images/                             # screenshots do deploy real (01 a 13)
+│   ├── projeto-cloudformation.yaml    # Template consolidado (deploy na AWS)
+│   ├── 01-EC2.yaml                    # Material da aula — referência
+│   ├── 02-Apache.yaml                 # Material da aula — referência
+│   ├── 03-Firewall.yaml               # Material da aula — referência
+│   └── 04-EC2_S3_UserGroup.yaml       # Material da aula — referência
+└── images/                            # Screenshots do deploy real (01 a 13)
+    ├── 01-criar-key-pair.png
+    ├── 02-upload-template.png
+    ├── 03-parametros-stack.png
+    ├── 04-stack-options.png
+    ├── 05-review-stack.png
+    ├── 06-recursos-criados.png
+    ├── 07-outputs.png
+    ├── 08-pagina-apache.png
+    ├── 09-ec2-instance.png
+    ├── 10-security-group.png
+    ├── 11-bucket-s3.png
+    ├── 12-usuario-iam.png
+    └── 13-template-yaml.png
 ```
 
 ---
 
-## 12. Referências
+## ✅ Conclusão
 
-- [Documentação oficial — AWS CloudFormation](https://docs.aws.amazon.com/cloudformation/)
-- [Referência de tipos de recurso](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html)
+Este laboratório consolidou na prática o conceito de **Infraestrutura como Código** com AWS CloudFormation. A principal descoberta foi que templates de materiais didáticos frequentemente precisam de adaptações para funcionar em contas reais — AMIs fixas envelhecem, VPCs são específicas por conta e nomes de recursos seguem regras que o material nem sempre documenta. Desenvolver o template consolidado desde o zero, corrigindo cada problema encontrado, foi a experiência de aprendizado mais significativa desta prática.
 
 ---
 
-Desafio desenvolvido como parte do bootcamp **GFT - Fundamentos de Cloud com AWS** — DIO.
+## 📚 Referências
+
+- [Documentação AWS CloudFormation](https://docs.aws.amazon.com/cloudformation/)
+- [Referência de Tipos de Recurso](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html)
+- [SSM Parameter Store — AMIs](https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-public-parameters-ami.html)
+- [DIO — GFT Fundamentos de Cloud com AWS](https://www.dio.me/)
+
+---
+
+<div align="center">
+
+Desenvolvido como parte do bootcamp **GFT — Fundamentos de Cloud com AWS** na [DIO](https://www.dio.me/)
+
+</div>
