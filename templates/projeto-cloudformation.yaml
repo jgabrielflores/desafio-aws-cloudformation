@@ -1,0 +1,142 @@
+###### DESAFIO AWS CLOUDFORMATION - Bootcamp GFT Fundamentos de Cloud com AWS (DIO)
+# Template consolidado: reune em uma unica stack os conceitos dos 4 templates da aula
+# (EC2 + Apache + Security Group + S3 + IAM), corrigido para subir sem erros.
+
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Cria uma stack completa para o desafio de CloudFormation: uma instancia EC2 com
+  servidor web Apache, um Security Group liberando as portas 80 (HTTP) e 22 (SSH),
+  um bucket S3 e um usuario IAM dentro de um grupo. Demonstra Parameters, Mappings,
+  Resources e Outputs em um unico arquivo.
+
+# ---------------------------------------------------------------------------
+# PARAMETERS - valores informados no momento do deploy (deixam o template reutilizavel)
+# ---------------------------------------------------------------------------
+Parameters:
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    Description: Tipo da instancia EC2.
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+    ConstraintDescription: Escolha um tipo de instancia valido (t2.micro ou t3.micro).
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: >
+      Par de chaves (Key Pair) ja existente na sua conta, usado para acessar a
+      instancia via SSH. Crie um em EC2 > Key Pairs antes de subir a stack.
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: >
+      Resolve automaticamente a AMI mais recente do Amazon Linux 2023 na regiao
+      atual. Substitui a AMI fixa do material original, que fica desatualizada.
+
+# ---------------------------------------------------------------------------
+# MAPPINGS - tabelas estaticas de consulta (chave -> valor) por regiao
+# ---------------------------------------------------------------------------
+Mappings:
+  RegiaoInfo:
+    us-east-1:
+      Localizacao: Norte da Virginia
+    us-west-2:
+      Localizacao: Oregon
+    sa-east-1:
+      Localizacao: Sao Paulo
+
+# ---------------------------------------------------------------------------
+# RESOURCES - os recursos AWS que a stack vai criar
+# ---------------------------------------------------------------------------
+Resources:
+
+  # Security Group: firewall da instancia. Libera HTTP (80) e SSH (22).
+  GrupoSeguranca:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Acesso liberado nas portas 80 (HTTP) e 22 (SSH)
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Acesso web HTTP de qualquer origem
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: Acesso SSH (em producao, restrinja ao seu IP)
+
+  # Instancia EC2 com Apache instalado via UserData no primeiro boot.
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestAmiId
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref GrupoSeguranca
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<h1>OLA AWS FOUNDATIONS do $(hostname -f)</h1>" > /var/www/html/index.html
+          echo "<p>Stack ${AWS::StackName} criada via CloudFormation.</p>" >> /var/www/html/index.html
+      Tags:
+        - Key: Name
+          Value: Webserver-CloudFormation
+        - Key: Projeto
+          Value: Desafio-DIO-GFT
+        - Key: Localizacao
+          Value: !FindInMap [RegiaoInfo, !Ref "AWS::Region", Localizacao]
+
+  # Bucket S3. Nome em minusculas e unico por conta (corrige o erro do material).
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub s3-foundation-${AWS::AccountId}
+      Tags:
+        - Key: Projeto
+          Value: Desafio-DIO-GFT
+
+  # Grupo IAM.
+  IAMGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: GPO-ADMIN-LAB
+
+  # Usuario IAM, associado ao grupo acima.
+  IAMUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: usuario.lab.cloudformation
+      Groups:
+        - !Ref IAMGroup
+
+# ---------------------------------------------------------------------------
+# OUTPUTS - valores uteis exibidos apos a criacao da stack
+# ---------------------------------------------------------------------------
+Outputs:
+
+  InstanceId:
+    Description: ID da instancia EC2 criada
+    Value: !Ref EC2Instance
+
+  WebsiteURL:
+    Description: URL para testar o servidor Apache no navegador
+    Value: !Sub http://${EC2Instance.PublicDnsName}
+
+  S3BucketName:
+    Description: Nome do bucket S3 criado
+    Value: !Ref S3Bucket
+
+  IAMUserName:
+    Description: Nome do usuario IAM criado
+    Value: !Ref IAMUser

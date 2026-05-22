@@ -1,0 +1,16 @@
+# Material de origem e arquivos locais que não fazem parte da entrega
+*.zip
+materialAula/
+desafio.txt
+videos.txt
+
+# Sistema operacional e ferramentas
+Thumbs.db
+.DS_Store
+.claude/
+
+# Credenciais AWS — NUNCA versionar
+.aws/
+*.pem
+*.ppk
+credentials
